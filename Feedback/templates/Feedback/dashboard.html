@@ -1,0 +1,229 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Feedback Portal - Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body { 
+        padding: 24px; 
+        background-size: 400% 400%;
+        animation: gradientMove 12s ease infinite;
+        color: #f1f1f1;
+        background: linear-gradient(-45deg, #0b0d15, #13162a, #1a2340, #0b0d15);
+        background-size: cover;
+    }
+    .card { 
+      border-radius:12px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.12);
+      background: rgba(249, 249, 249, 0.95);
+      color: #111;
+    }
+    textarea, select, input[type="text"], input[type="number"] {
+      background: rgba(255,255,255,0.9);
+      color: #111;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    .chart-wrap { max-width:600px; }
+    @media (max-width: 767px) {
+      .chart-wrap { max-width:100%; margin-bottom:12px; }
+    }
+    @keyframes gradientMove {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    .btn-glow {
+    color: white !important;
+    border: 1px solid #ffffff55;
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(5px);
+    box-shadow: 0 0 10px rgba(255,255,255,0.2);
+    transition: 0.3s ease;
+    }
+
+    .btn-glow:hover {
+    background: rgba(255,255,255,0.15);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3>Feedback Portal</h3>
+      <div>
+        <a class="btn btn-glow" href="/admin/">Admin</a>
+        <a class="btn btn-glow" href="/export/csv/">Export CSV</a>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-5">
+        <div class="card p-3">
+          <h5 class="mb-3">Submit Feedback</h5>
+          <form id="FeedbackForm" method="post" novalidate>
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="btn btn-success" type="submit">Submit</button>
+            <div id="msg" class="mt-2"></div>
+          </form>
+        </div>
+        <small class="text-muted mt-2 d-block">
+          Login as admin to add courses and instructors.
+        </small>
+      </div>
+
+      <div class="col-md-7">
+        <div class="card p-3">
+          <h5 class="mb-3">Analytics</h5>
+
+          <div class="row">
+            <div class="col-md-6 chart-wrap">
+              <h6 class="mb-2">Out of Syllabus</h6>
+              <canvas id="outOfSyllabusChart"></canvas>
+              <div id="outOfSyllabusMsg" class="text-muted mt-2" style="display:none;"></div>
+            </div>
+
+            <div class="col-md-6 chart-wrap">
+              <h6 class="mb-2">Time Sufficiency</h6>
+              <canvas id="timeChart"></canvas>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <h6 class="mb-2">Nature of Question Paper</h6>
+            <canvas id="natureChart" style="max-height:260px"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    async function fetchStats(){
+      try {
+        const res = await fetch("/api/stats/");
+        if (!res.ok) {
+          console.error('Stats API returned', res.status, await res.text());
+          return { by_out_of_syllabus: [], by_time: [], by_nature: [] };
+        }
+        return await res.json();
+      } catch (err) {
+        console.error("Failed to fetch stats:", err);
+        return { by_out_of_syllabus: [], by_time: [], by_nature: [] };
+      }
+    }
+
+    function makeBar(ctx, labels, values, title, color='rgba(54,162,235,0.8)'){
+      return new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: title,
+            data: values,
+            backgroundColor: color,
+            borderColor: color.replace('0.8','1'),
+            borderWidth: 1
+          }]
+        },
+        options: { 
+          responsive:true,
+          plugins:{ legend:{display:false} },
+          scales:{ 
+            y:{ beginAtZero:true, ticks:{color:'#222'} }, 
+            x:{ ticks:{color:'#222'} } 
+          }
+        }
+      });
+    }
+
+    function makePie(ctx, labels, values){
+      return new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: ['#4CAF50','#FFCE56','#FF6384','#36A2EB','#9966FF']
+          }]
+        },
+        options: { 
+          responsive:true,
+          plugins:{ legend:{ position:'bottom', labels:{color:'#222'} } }
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const stats = await fetchStats();
+
+     
+      const out_raw = stats.by_out_of_syllabus || null;
+
+      if (out_raw && out_raw.length) {
+        const labels = out_raw.map(x => x.out_of_syllabus);
+        const vals = out_raw.map(x => x.count);
+        makeBar(document.getElementById('outOfSyllabusChart').getContext('2d'), labels, vals, 'Out of Syllabus', 'rgba(255,99,132,0.8)');
+        document.getElementById('outOfSyllabusMsg').style.display = 'none';
+      } else {
+        document.getElementById('outOfSyllabusChart').style.display = 'none';
+        const msg = document.getElementById('outOfSyllabusMsg');
+        msg.style.display = 'block';
+        msg.innerHTML = "No out-of-syllabus stats available. To enable this chart, add this line in your API view: <code>by_out_of_syllabus = Feedback.objects.values('out_of_syllabus').annotate(count=Count('id'))</code> and include it in the JSON response.";
+      }
+
+      const tLabels = (stats.by_time || []).map(x => x.time_sufficiency);
+      const tVals   = (stats.by_time || []).map(x => x.count);
+      if (tVals.length && tVals.reduce((a,b)=>a+b,0) > 0) {
+        makeBar(document.getElementById('timeChart').getContext('2d'), tLabels, tVals, 'Time Sufficiency', 'rgba(54,162,235,0.8)');
+      } else {
+        document.getElementById('timeChart').outerHTML = '<div class="text-muted p-3">No time-sufficiency data yet</div>';
+      }
+
+      const nLabels = (stats.by_nature || []).map(x => x.nature);
+      const nVals   = (stats.by_nature || []).map(x => x.count);
+      if (nVals.length && nVals.reduce((a,b)=>a+b,0) > 0) {
+        makePie(document.getElementById('natureChart').getContext('2d'), nLabels, nVals);
+      } else {
+        document.getElementById('natureChart').outerHTML = '<div class="text-muted p-3">No nature data yet</div>';
+      }
+    });
+
+
+    document.getElementById('FeedbackForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target);
+
+      try {
+        const res = await fetch("", {
+          method: "POST",
+          headers: {"X-Requested-With":"XMLHttpRequest"},
+          body: data
+        });
+
+        if(res.ok){
+          document.getElementById('msg').innerHTML = '<div class="alert alert-success">Submitted!</div>';
+          setTimeout(()=>location.reload(),600);
+        } else {
+          const text = await res.text().catch(()=>'');
+          document.getElementById('msg').innerHTML = `<div class="alert alert-danger">Submit failed: ${text}</div>`;
+        }
+      } catch(err) {
+        console.error('Submit error', err);
+        document.getElementById('msg').innerHTML = '<div class="alert alert-danger">Submit failed (network)</div>';
+      }
+    });
+  </script>
+
+</body>
+</html>
