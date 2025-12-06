@@ -24,8 +24,15 @@ SECRET_KEY = 'django-insecure-pvfbosc_ax^oh6m5lqtul3q)hq#w@6f=c^era!5()fo)764i-5
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+import os
 
-ALLOWED_HOSTS = []
+# Read ALLOWED_HOSTS from environment (comma-separated), fallback to localhost for local dev
+_env_hosts = os.environ.get('ALLOWED_HOSTS', '')
+if _env_hosts:
+    ALLOWED_HOSTS = [h.strip() for h in _env_hosts.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
 
 
 # Application definition
@@ -116,6 +123,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
