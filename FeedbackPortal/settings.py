@@ -31,7 +31,7 @@ _env_hosts = os.environ.get('ALLOWED_HOSTS', '')
 if _env_hosts:
     ALLOWED_HOSTS = [h.strip() for h in _env_hosts.split(',') if h.strip()]
 else:
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost'] | "django-k8nr.onrender.com"
 
 
 
