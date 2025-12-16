@@ -4,7 +4,8 @@ This is a Django-based project that collects student feedback for courses/exams 
 
 🌐 Live Site
 
-(Not deployed yet — can be deployed using Render/Heroku if needed)
+(Not deployed yet)
+Code-only Django Project
 
 📸 Features
 
